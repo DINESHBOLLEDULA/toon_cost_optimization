@@ -13,12 +13,15 @@ from toon_utils import (
 )
 
 app = Flask(__name__)
+
+# Configure CORS for production
 CORS(app, resources={
     r"/api/*": {
         "origins": [
             "http://localhost:3000",
             "http://localhost:5173",
-            "https://toon-cost-optimization.vercel.app/"   # replace with your real Vercel URL
+            "https://toon-cost-optimization.vercel.app",
+            "https://*.vercel.app"  # Allow all Vercel preview deployments
         ],
         "methods": ["GET", "POST", "PUT", "DELETE"],
         "allow_headers": ["Content-Type"]
@@ -29,19 +32,32 @@ CORS(app, resources={
 JOBS_DATA = []
 DATA_PATH = os.path.join(os.path.dirname(__file__), 'data', '60_Job_Records.csv')
 
-
-
 def load_data():
     global JOBS_DATA
-    with open(DATA_PATH, 'r', encoding='utf-8') as f:
-        reader = csv.DictReader(f)
-        JOBS_DATA = list(reader)
+    try:
+        with open(DATA_PATH, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            JOBS_DATA = list(reader)
+        print(f"✓ Loaded {len(JOBS_DATA)} job records")
+    except Exception as e:
+        print(f"✗ Error loading data: {e}")
+        JOBS_DATA = []
 
 load_data()
 
 @app.route('/')
 def home():
-    return jsonify({"message": "Flask API is running", "status": "ok"})
+    return jsonify({
+        "message": "TOON vs JSON API is running",
+        "status": "ok",
+        "endpoints": {
+            "dataset_info": "/api/dataset-info",
+            "dataset_format": "/api/dataset-format?format=json|toon",
+            "compare": "/api/compare (POST)",
+            "table_preview": "/api/table-preview",
+            "download": "/download"
+        }
+    })
 
 @app.route('/api/dataset-info', methods=['GET'])
 def dataset_info():
@@ -131,16 +147,14 @@ def compare():
     
     # Run comparison for JSON output
     full_prompt_json, data_prompt_json = build_prompt(input_data_text, query, 'json')
-    
-    # Count tokens for cost calculation (data + query only, excluding instructions)
     input_tokens_json = count_tokens(data_prompt_json)
     
     try:
-        response_json = run_gemini(full_prompt_json)  # Send full prompt to LLM
+        response_json = run_gemini(full_prompt_json)
         output_tokens_json = count_tokens(response_json)
     except Exception as e:
-        # Fallback with mock response
-        response_json = json.dumps({'results': 'Mock JSON response', 'query': query}, indent=2)
+        print(f"Gemini API error (JSON): {e}")
+        response_json = json.dumps({'results': 'API Error - Mock response', 'query': query}, indent=2)
         output_tokens_json = count_tokens(response_json)
     
     cost_json = estimate_cost(input_tokens_json, output_tokens_json)
@@ -158,15 +172,13 @@ def compare():
     
     # Run comparison for TOON output
     full_prompt_toon, data_prompt_toon = build_prompt(input_data_text, query, 'toon')
-    
-    # Count tokens for cost calculation (data + query only, excluding instructions)
     input_tokens_toon = count_tokens(data_prompt_toon)
     
     try:
-        response_toon = run_gemini(full_prompt_toon)  # Send full prompt to LLM
+        response_toon = run_gemini(full_prompt_toon)
         output_tokens_toon = count_tokens(response_toon)
     except Exception as e:
-        # Fallback with mock response
+        print(f"Gemini API error (TOON): {e}")
         response_toon = "results[1]{mock}:\n  Mock TOON response\nquery: " + query
         output_tokens_toon = count_tokens(response_toon)
     
@@ -196,5 +208,11 @@ def compare():
         }
     })
 
+# Health check endpoint for Render
+@app.route('/health', methods=['GET'])
+def health():
+    return jsonify({"status": "healthy"}), 200
+
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
