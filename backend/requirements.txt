@@ -1,0 +1,12 @@
+Flask==3.0.0
+flask-cors==4.0.0
+google-generativeai>=0.8.0
+
+# Install TOON format library (use the official one)
+# Try: pip install git+https://github.com/toon-format/toon-python.git
+# Or: pip install python-toon
+python-toon
+
+# Recommended: Install tiktoken for accurate token counting
+# Use: pip install tiktoken --only-binary tiktoken
+tiktoken
