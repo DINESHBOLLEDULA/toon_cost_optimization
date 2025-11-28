@@ -18,7 +18,7 @@ CORS(app, resources={
         "origins": [
             "http://localhost:3000",
             "http://localhost:5173",
-            "https://your-app.vercel.app"   # replace with your real Vercel URL
+            "https://toon-cost-optimization.vercel.app/"   # replace with your real Vercel URL
         ],
         "methods": ["GET", "POST", "PUT", "DELETE"],
         "allow_headers": ["Content-Type"]
